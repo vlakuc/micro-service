@@ -23,8 +23,8 @@
 request = function()
    headers = {}
    headers["Content-Type"] = "application/json"
-   body = "{}"
-   return wrk.format("POST", "/v1/ivmero/api", headers, body)
+   body = ""
+   return wrk.format("POST", "/v1/ivmero/api/user/registered", headers, body)
 end
 
 response = function(status, headers, body)

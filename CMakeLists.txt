@@ -37,7 +37,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 
     message("-- configuring gcc options")
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -DBOOST_LOG_DYN_LINK")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -DBOOST_LOG_DYN_LINK -lpthread")
 
 endif()
 
@@ -46,6 +46,7 @@ endif()
 # source files ...
 add_executable(${PROJECT_NAME} ./source/main.cpp
                                ./source/microsvc_controller.cpp
+                               ./source/user_manager.cpp
                                ./source/foundation/network_utils.cpp
                                ./source/foundation/basic_controller.cpp)
 

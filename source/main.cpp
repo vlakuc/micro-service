@@ -38,7 +38,7 @@ int main(int argc, const char * argv[]) {
     InterruptHandler::hookSIGINT();
 
     MicroserviceController server;
-    server.setEndpoint("http://host_auto_ip4:6502/v1/ivmero/api");
+    server.setEndpoint("http://host_auto_ip4:6502/api");
     
     try {
         // wait for server initialization...

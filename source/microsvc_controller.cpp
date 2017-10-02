@@ -26,6 +26,7 @@
 
 #include <std_micro_service.hpp>
 #include "microsvc_controller.hpp"
+#include "user_manager.hpp"
 
 using namespace web;
 using namespace http;
@@ -41,6 +42,7 @@ void MicroserviceController::initRestOpHandlers() {
 void MicroserviceController::handleGet(http_request message) {
     auto path = requestPath(message);
     if (!path.empty()) {
+      //   message.relative_uri() 
         if (path[0] == "service" && path[1] == "test") {
             auto response = json::value::object();
             response["version"] = json::value::string("0.1.1");
@@ -62,8 +64,71 @@ void MicroserviceController::handlePut(http_request message) {
 }
 
 void MicroserviceController::handlePost(http_request message) {
-    message.reply(status_codes::NotImplemented, responseNotImpl(methods::POST));
+  auto path = requestPath(message);
+  if (!path.empty() && path[0] == "user") {
+    message.
+      extract_string().
+      then([=](utility::string_t request) {
+	  auto q = uri::split_query(request);
+	  try {
+	    if(path[1] == "registered") {
+	      UserManager::getInstance().registerUser(q["id"], q["name"]);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesful registration!");
+	       message.reply(status_codes::OK, response);
+	    }
+	    else if(path[1] == "renamed") {
+	       
+	       UserManager::getInstance().hadnleUserRenamed(q["id"], q["name"]);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesful rename!");
+	       message.reply(status_codes::OK, response);
+
+	    }
+	    else if(path[1] == "connected") {
+	       UserManager::getInstance().hadnleUserConnected(q["id"]);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesfuly connected!");
+	       message.reply(status_codes::OK, response);
+
+	    }
+	    else if(path[1] == "disconnected") {
+	       UserManager::getInstance().hadnleUserDisconnected(q["id"]);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesfuly disconnected!");
+	       message.reply(status_codes::OK, response);
+
+	    }
+	    else if(path[1] == "deal") {
+	       float f = std::stof(q["amount"]);
+	       UserManager::getInstance().hadnleUserDial(q["id"], Clock::now(), f);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesful deal!");
+	       message.reply(status_codes::OK, response);
+
+	    }
+
+	  }
+	  catch(UserManagerException & e) {
+	    message.reply(status_codes::BadRequest, e.what());
+	  }
+	  catch(std::exception& e) {
+	    message.reply(status_codes::BadRequest, e.what());
+	  }
+	});
+  }
 }
+
 
 void MicroserviceController::handleDelete(http_request message) {    
     message.reply(status_codes::NotImplemented, responseNotImpl(methods::DEL));
