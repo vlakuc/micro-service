@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <thread>
+#include <vector>
 
 #include <std_micro_service.hpp>
 
@@ -19,8 +20,20 @@ struct UserInformation {
   bool connected;
 };
 
+
 using UserDatabase = std::unordered_map<std::string, UserInformation>;
 using UserDatabaseItem = std::pair<std::string, UserInformation>;
+using UserList = std::vector<std::pair<std::string, UserInformation>>;
+
+struct RatingRequest {
+  UserList topRated;
+  UserList neighbours;
+  std::string userId;
+  size_t userPos = 0;
+  size_t bestNeigbourPos = 0;
+  size_t topNum = 10;
+  size_t nearNum = 10;
+};
 
 class UserManagerException : public std::exception {
   std::string _message;
@@ -50,6 +63,8 @@ public:
 			 const std::string& newName);
   
   void hadnleUserDial(const std::string& id, const TimePoint& tp, const float val);
+
+  void getRating(RatingRequest& req);
 
 private:
 

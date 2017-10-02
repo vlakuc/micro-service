@@ -53,16 +53,78 @@ UserManager::UserManager() {
   timerThread = std::thread( [=] {
       for(;;) {
 	std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::cout << "Rating:\n";
-	std::unique_lock<std::mutex> lock { usersDBMutex };
-	std::vector<UserDatabaseItem> usrs = getRated(usersDB);
-        for (const auto& u : usrs) {
-	  std::cout << u.second.name << " -> " << u.second.totalRev << std::endl;
+        std::cout << "=== Rating:\n";
+	std::vector<UserDatabaseItem> usrs;// = getRated(usersDB);
+	RatingRequest req;
+	try {
+	    getRating(req);
+	    std::cout << "=== TOP " << req.topNum << " ===" << std::endl;
+	    auto i = 1;
+	    for (const auto& u : req.topRated) {
+		std::cout << i << ". " << u.second.name << " --> " << u.second.totalRev << std::endl;
+		i++;
+	    }
 	}
-        std::cout << "EOF Rating\n";
+	catch(UserManagerException & e) {
+	    std::cout << "Failed to get rating: " << e.what() << std::endl;
+	}
+        std::cout << "=== EOF Rating\n";
       }
   } );
     timerThread.detach();
+}
+
+void UserManager::getRating(RatingRequest& req)
+{
+    req.topRated.clear();
+    req.neighbours.clear();
+    req.userPos = 0;
+    req.bestNeigbourPos = 0;
+  
+    std::unique_lock<std::mutex> lock { usersDBMutex };
+
+    // Make sorted snapshot of users database and fill top rated list
+    typedef std::function<bool(const UserDatabaseItem&, const UserDatabaseItem&)> Comparator;
+    Comparator compFunctor =
+	[](const UserDatabaseItem& elem1, const UserDatabaseItem& elem2)
+	{
+	    return elem1.second.totalRev > elem2.second.totalRev;
+	};
+    std::multiset<UserDatabaseItem, Comparator> setOfUsers(
+	usersDB.begin(), usersDB.end(), compFunctor);
+
+    int n = std::min(setOfUsers.size(), req.topNum);
+    req.topRated.reserve(n);
+    std::copy_n(setOfUsers.begin(), n, std::back_inserter(req.topRated));
+
+    // If requested fill rating for the particular user
+    if (!req.userId.empty()) {
+	auto it = std::find_if(setOfUsers.begin(),
+			       setOfUsers.end(),
+			       [&](const UserDatabaseItem& p ) { return p.second.id == req.userId;});
+	if (it == setOfUsers.end()) {
+	    throw UserManagerException("cannot find user rating!");
+	}
+	auto fit = next(it);
+	auto bit = it;
+	if (bit != setOfUsers.begin())
+	    bit = prev(bit);
+	for (int i = 0; i < req.nearNum; i++)
+	{
+	    if (fit != setOfUsers.end())
+		fit = next(fit);
+	    if (bit != setOfUsers.begin())
+		bit = prev(bit);
+	    if (fit == setOfUsers.end() && bit == setOfUsers.begin())
+		break;
+	}
+	if (fit != setOfUsers.end())
+	    fit = next(fit);
+	req.bestNeigbourPos = std::distance(setOfUsers.begin(), bit) + 1;
+	req.userPos = req.bestNeigbourPos + std::distance(bit, it);
+	req.neighbours.reserve(std::distance(bit, fit));
+	std::copy(bit, fit, req.neighbours.begin());
+    }
 }
 
 void UserManager::registerUser(const std::string& id,

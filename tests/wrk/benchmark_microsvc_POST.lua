@@ -23,8 +23,8 @@
 request = function()
    headers = {}
    headers["Content-Type"] = "application/json"
-   body = ""
-   return wrk.format("POST", "/v1/ivmero/api/user/registered", headers, body)
+   body = "id=777&amount=0.001"
+   return wrk.format("POST", "/api/user/deal", headers, body)
 end
 
 response = function(status, headers, body)
