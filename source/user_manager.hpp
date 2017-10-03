@@ -23,7 +23,7 @@ struct UserInformation {
 
 using UserDatabase = std::unordered_map<std::string, UserInformation>;
 using UserDatabaseItem = std::pair<std::string, UserInformation>;
-using UserList = std::vector<std::pair<std::string, UserInformation>>;
+using UserList = std::vector<UserDatabaseItem>;
 
 struct RatingRequest {
   UserList topRated;
@@ -63,6 +63,8 @@ public:
 			 const std::string& newName);
   
   void hadnleUserDial(const std::string& id, const TimePoint& tp, const float val);
+
+  void hadnleUserSetCurrent(const std::string& id);
 
   void getRating(RatingRequest& req);
 

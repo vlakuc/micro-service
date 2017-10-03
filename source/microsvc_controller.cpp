@@ -90,11 +90,42 @@ void MicroserviceController::handlePost(http_request message) {
 
 	    }
 	    else if(path[1] == "connected") {
-	       UserManager::getInstance().hadnleUserConnected(q["id"]);
-	       
+               std::string userId = q["id"];
+	       UserManager::getInstance().hadnleUserConnected(userId);
 	       json::value response;
 	       response["message"] = json::value::string(
 							"succesfuly connected!");
+               RatingRequest req;
+               req.userId = userId;
+               UserManager::getInstance().getRating(req);
+               auto i = 1;
+               std::vector<json::value> vals;
+               vals.reserve(req.topRated.size()); 
+               for(const auto& u : req.topRated) {
+                   json::value pos;
+                   pos["position"] = i;
+                   pos["name"] = json::value::string(u.second.name);
+                   pos["rating"] = u.second.totalRev;
+                   vals.push_back(pos);
+                   i++;
+               }
+
+	       response["top_rated"] = json::value::array(vals);
+
+               vals.clear();
+               vals.reserve(req.neighbours.size());
+               i = req.bestNeigbourPos;
+               for(const auto& u : req.neighbours) {
+                   json::value pos;
+                   pos["position"] = i;
+                   pos["name"] = json::value::string(u.second.name);
+                   pos["rating"] = u.second.totalRev;
+                   pos["is_current"] = u.second.id == userId;
+                   vals.push_back(pos);
+                   i++;
+               }
+               response["neigbour_list"] = json::value::array(vals);
+
 	       message.reply(status_codes::OK, response);
 
 	    }
@@ -117,6 +148,16 @@ void MicroserviceController::handlePost(http_request message) {
 	       message.reply(status_codes::OK, response);
 
 	    }
+	    else if(path[1] == "current") {
+	       UserManager::getInstance().hadnleUserSetCurrent(q["id"]);
+	       
+	       json::value response;
+	       response["message"] = json::value::string(
+							"succesful!");
+	       message.reply(status_codes::OK, response);
+
+	    }
+
 
 	  }
 	  catch(UserManagerException & e) {

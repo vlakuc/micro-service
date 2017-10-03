@@ -7,8 +7,6 @@
 
 namespace {
 
-    const int TOP_RATED_NUM = 15;
-
     // Week number of the year
     // (Monday as the first day of the week) as a decimal number [00,53].
     // All days in a new year preceding the first Monday are considered to be in week 0.
@@ -23,25 +21,10 @@ namespace {
         TimePoint cur = Clock::now();
         return getWeekNum(cur) == getWeekNum(tp);
     }
-
-    std::vector<UserDatabaseItem> getRated(const UserDatabase& db) {
-        std::vector<UserDatabaseItem> res;
-        typedef std::function<bool(const UserDatabaseItem&, const UserDatabaseItem&)> Comparator;
-        Comparator compFunctor =
-            [](const UserDatabaseItem& elem1, const UserDatabaseItem& elem2)
-            {
-                return elem1.second.totalRev > elem2.second.totalRev;
-            };
-        std::multiset<UserDatabaseItem, Comparator> setOfUsers(
-            db.begin(), db.end(), compFunctor);
-
-        int n = std::min(static_cast<int>(setOfUsers.size()), TOP_RATED_NUM); 
-        std::copy_n(setOfUsers.begin(), n, std::back_inserter(res));
-        return res;
-    }
 }
 
 UserDatabase usersDB;
+std::string currentUserId;
 std::mutex usersDBMutex;
 
 UserManager& UserManager::getInstance() {
@@ -56,12 +39,22 @@ UserManager::UserManager() {
         std::cout << "=== Rating:\n";
 	std::vector<UserDatabaseItem> usrs;// = getRated(usersDB);
 	RatingRequest req;
+        req.userId = currentUserId;
 	try {
 	    getRating(req);
 	    std::cout << "=== TOP " << req.topNum << " ===" << std::endl;
 	    auto i = 1;
 	    for (const auto& u : req.topRated) {
 		std::cout << i << ". " << u.second.name << " --> " << u.second.totalRev << std::endl;
+		i++;
+	    }
+	    std::cout << "=== USER " << " ===" << std::endl;
+            i = req.bestNeigbourPos;
+	    for (const auto& u : req.neighbours) {
+                std::string mark;
+                if (u.second.id == currentUserId)
+                    mark = "* ";
+		std::cout << mark << i << ". " << u.second.name << " --> " << u.second.totalRev << std::endl;
 		i++;
 	    }
 	}
@@ -72,6 +65,12 @@ UserManager::UserManager() {
       }
   } );
     timerThread.detach();
+}
+
+void UserManager::hadnleUserSetCurrent(const std::string& id)
+{
+    std::unique_lock<std::mutex> lock { usersDBMutex };
+    currentUserId = id;
 }
 
 void UserManager::getRating(RatingRequest& req)
@@ -109,7 +108,7 @@ void UserManager::getRating(RatingRequest& req)
 	auto bit = it;
 	if (bit != setOfUsers.begin())
 	    bit = prev(bit);
-	for (int i = 0; i < req.nearNum; i++)
+	for (int i = 0; i < req.nearNum - 1; i++)
 	{
 	    if (fit != setOfUsers.end())
 		fit = next(fit);
@@ -123,7 +122,7 @@ void UserManager::getRating(RatingRequest& req)
 	req.bestNeigbourPos = std::distance(setOfUsers.begin(), bit) + 1;
 	req.userPos = req.bestNeigbourPos + std::distance(bit, it);
 	req.neighbours.reserve(std::distance(bit, fit));
-	std::copy(bit, fit, req.neighbours.begin());
+        std::copy(bit, fit, std::back_inserter(req.neighbours));
     }
 }
 

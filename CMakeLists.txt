@@ -4,7 +4,7 @@ project(micro-service)
 
 # Configure required libraries ...
 if(UNIX) # Darwing or Linux
-    
+#    set(Boost_USE_STATIC_LIBS   ON)
     find_package(Boost REQUIRED COMPONENTS system thread log program_options chrono)
     find_package(Threads REQUIRED)
 
