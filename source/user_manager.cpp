@@ -7,7 +7,7 @@
 #include "user_manager.hpp"
 
 namespace {
-    int ratingTimeout = 1;
+    int ratingTimeout = 60;
     // Week number of the year
     // (Monday as the first day of the week) as a decimal number [00,53].
     // All days in a new year preceding the first Monday are considered to be in week 0.
