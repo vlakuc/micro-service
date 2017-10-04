@@ -7,7 +7,7 @@
 #include "user_manager.hpp"
 
 namespace {
-
+    int ratingTimeout = 1;
     // Week number of the year
     // (Monday as the first day of the week) as a decimal number [00,53].
     // All days in a new year preceding the first Monday are considered to be in week 0.
@@ -22,6 +22,18 @@ namespace {
         TimePoint cur = Clock::now();
         return getWeekNum(cur) == getWeekNum(tp);
     }
+
+    void setRatingTimeout() {
+        if(const char* env_p = std::getenv("RATING_TIMEOUT")) {
+            try {
+                ratingTimeout = std::stoi(env_p);
+            }
+            catch (std::exception& e) {
+                std::cout << "Bad timeout value: " << e.what() << '\n';
+            }
+        }
+    }
+    
 }
 
 UserDatabase usersDB;
@@ -35,9 +47,10 @@ UserManager& UserManager::getInstance() {
 }
 
 UserManager::UserManager() {
+  setRatingTimeout();
   timerThread = std::thread( [=] {
       while(!timeToExit) {
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	std::this_thread::sleep_for(std::chrono::seconds(ratingTimeout));
         std::cout << "=== Rating:\n";
 	std::vector<UserDatabaseItem> usrs;
 	RatingRequest req;
