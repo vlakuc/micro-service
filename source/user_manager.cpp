@@ -2,6 +2,7 @@
 #include <mutex>
 #include <set>
 #include <algorithm>
+#include <boost/timer/timer.hpp>
 
 #include "user_manager.hpp"
 
@@ -26,6 +27,7 @@ namespace {
 UserDatabase usersDB;
 std::string currentUserId;
 std::mutex usersDBMutex;
+std::atomic_bool timeToExit(false);
 
 UserManager& UserManager::getInstance() {
     static UserManager m;
@@ -34,13 +36,14 @@ UserManager& UserManager::getInstance() {
 
 UserManager::UserManager() {
   timerThread = std::thread( [=] {
-      for(;;) {
+      while(!timeToExit) {
 	std::this_thread::sleep_for(std::chrono::seconds(1));
         std::cout << "=== Rating:\n";
-	std::vector<UserDatabaseItem> usrs;// = getRated(usersDB);
+	std::vector<UserDatabaseItem> usrs;
 	RatingRequest req;
         req.userId = currentUserId;
 	try {
+	    boost::timer::auto_cpu_timer t;
 	    getRating(req);
 	    std::cout << "=== TOP " << req.topNum << " ===" << std::endl;
 	    auto i = 1;
@@ -57,19 +60,28 @@ UserManager::UserManager() {
 		std::cout << mark << i << ". " << u.second.name << " --> " << u.second.totalRev << std::endl;
 		i++;
 	    }
+	    std::cout << "=== EOF Rating\n";
+	    std::cout << "=== Total users: " << req.totalUsers << " ===" << std::endl;
 	}
 	catch(UserManagerException & e) {
 	    std::cout << "Failed to get rating: " << e.what() << std::endl;
 	}
-        std::cout << "=== EOF Rating\n";
       }
   } );
-    timerThread.detach();
+}
+
+UserManager::~UserManager()
+{
+  timeToExit = true;
+  timerThread.join();
 }
 
 void UserManager::hadnleUserSetCurrent(const std::string& id)
 {
     std::unique_lock<std::mutex> lock { usersDBMutex };
+    if (usersDB.find(id) == usersDB.end()) {
+      throw UserManagerException("user does not exist!");
+    }
     currentUserId = id;
 }
 
@@ -81,6 +93,15 @@ void UserManager::getRating(RatingRequest& req)
     req.bestNeigbourPos = 0;
   
     std::unique_lock<std::mutex> lock { usersDBMutex };
+
+    // Check for outdated ratings
+    for(auto& u : usersDB) {
+      if (u.second.totalRev != 0) {
+	if (!isCurrentWeek(u.second.lastDeal)) {
+	  u.second.totalRev = 0;
+	}
+      }
+    }
 
     // Make sorted snapshot of users database and fill top rated list
     typedef std::function<bool(const UserDatabaseItem&, const UserDatabaseItem&)> Comparator;
@@ -95,6 +116,7 @@ void UserManager::getRating(RatingRequest& req)
     int n = std::min(setOfUsers.size(), req.topNum);
     req.topRated.reserve(n);
     std::copy_n(setOfUsers.begin(), n, std::back_inserter(req.topRated));
+    req.totalUsers = setOfUsers.size();
 
     // If requested fill rating for the particular user
     if (!req.userId.empty()) {
@@ -145,9 +167,7 @@ void UserManager::registerUser(const std::string& id,
   UserInformation ui;
   ui.id = id;
   ui.name = name;
-  usersDB.insert(
-		 std::pair<std::string, UserInformation>(id,
-							 ui));
+  usersDB.insert(UserDatabaseItem(id, ui));
 }
 
 void UserManager::hadnleUserConnected(const std::string& id) {
@@ -192,7 +212,7 @@ void UserManager::hadnleUserRenamed(const std::string& id,
   u->second.name = newName;
 }
 
-void UserManager::hadnleUserDial(const std::string& id, const TimePoint& tp, const float val) {
+void UserManager::hadnleUserDial(const std::string& id, const TimePoint& tp, const Rating& val) {
   std::unique_lock<std::mutex> lock { usersDBMutex };
   auto u = usersDB.find(id);
   if (u == usersDB.end()) {
@@ -201,7 +221,7 @@ void UserManager::hadnleUserDial(const std::string& id, const TimePoint& tp, con
   if (!u->second.connected) {
     throw UserManagerException("user not connected!");
   }
-  if (!isCurrentWeek(u->second.lastDeal)) {
+  if (u->second.totalRev != 0 && !isCurrentWeek(u->second.lastDeal)) {
     u->second.totalRev = 0;
   }
   if (isCurrentWeek(tp)) {

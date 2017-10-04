@@ -139,8 +139,21 @@ void MicroserviceController::handlePost(http_request message) {
 
 	    }
 	    else if(path[1] == "deal") {
-	       float f = std::stof(q["amount"]);
-	       UserManager::getInstance().hadnleUserDial(q["id"], Clock::now(), f);
+               Rating r {};
+	       std::string s = q["amount"];
+	       if (!s.empty())
+		 r = std::stof(s);
+	       
+	       uint64_t t {};
+	       s = q["time"];
+	       if (!s.empty())
+		 t = std::stoull(s);
+
+	       TimePoint tp {std::chrono::nanoseconds(t)};
+	       if (!t)
+		 tp = Clock::now();
+	       
+	       UserManager::getInstance().hadnleUserDial(q["id"], tp, r);
 	       
 	       json::value response;
 	       response["message"] = json::value::string(
